@@ -1,0 +1,117 @@
+// Frontend: React Chat Interface
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import './App.css'; // Add basic styles here
+
+const App = () => {
+  const [messages, setMessages] = useState([]); // Stores chat history
+  const [input, setInput] = useState(''); // Stores user input
+
+  const handleSend = async () => {
+    if (input.trim() === '') return;
+
+    // Update chat with user message
+    const userMessage = { sender: 'user', text: input };
+    setMessages([...messages, userMessage]);
+
+    try {
+      // Send user message to backend
+      const response = await axios.post('http://localhost:5000/send-message', { message: input });
+      const botMessage = { sender: 'bot', text: response.data.response };
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (error) {
+      const errorMessage = { sender: 'bot', text: 'Error retrieving response. Please try again.' };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+
+    setInput(''); // Clear input box
+  };
+
+  return (
+    <div className="chat-container">
+      <div className="chat-window">
+        {messages.map((msg, index) => (
+          <div key={index} className={message ${msg.sender}}> {msg.text} </div>
+        ))}
+      </div>
+      <div className="input-area">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type your message..."
+        />
+        <button onClick={handleSend}>Send</button>
+      </div>
+    </div>
+  );
+};
+
+export default App;
+
+// Backend: Flask Server
+from flask import Flask, request, jsonify
+import mysql.connector
+
+app = Flask(_name_)
+
+# Database initialization
+def init_db():
+    conn = mysql.connector.connect(
+        host="localhost",
+        user="your_username",
+        password="your_password",
+        database="chatbot_db"
+    )
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS responses (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        query VARCHAR(255) NOT NULL,
+                        response VARCHAR(255) NOT NULL)''')
+    conn.commit()
+    conn.close()
+
+# Insert default data into the database (only run once)
+def insert_default_data():
+    conn = mysql.connector.connect(
+        host="localhost",
+        user="your_username",
+        password="your_password",
+        database="chatbot_db"
+    )
+    cursor = conn.cursor()
+    data = [
+        ('hello', 'Hi there! How can I help you?'),
+        ('how are you', 'I am just a bot, but I am functioning as expected!'),
+        ('bye', 'Goodbye! Have a great day!')
+    ]
+    cursor.executemany('INSERT INTO responses (query, response) VALUES (%s, %s)', data)
+    conn.commit()
+    conn.close()
+
+@app.route('/send-message', methods=['POST'])
+def send_message():
+    user_message = request.json.get('message', '').lower()
+    
+    # Retrieve response from database
+    conn = mysql.connector.connect(
+        host="localhost",
+        user="your_username",
+        password="your_password",
+        database="chatbot_db"
+    )
+    cursor = conn.cursor()
+    cursor.execute('SELECT response FROM responses WHERE query = %s', (user_message,))
+    result = cursor.fetchone()
+    conn.close()
+
+    if result:
+        return jsonify({'response': result[0]})
+    else:
+        return jsonify({'response': "I'm sorry, I don't understand that."})
+
+if _name_ == '_main_':
+    init_db()
+    # Uncomment below line to insert default data (run only once)
+    # insert_default_data()
+    app.run(debug=True)
